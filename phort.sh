@@ -41,29 +41,30 @@ exifsorter() {
         do
             if [ -f "${PHOTO}" ]; then
                 local CREATE_DATE=`exiftool -DateTimeOriginal -fast2 "${PHOTO}" | cut -d':' -f2- | sed 's/ //g'`
-                
+
                 #If DateTimeOriginal was not available fall back to CreateDate
                 if [ -z "${CREATE_DATE}" ]; then
                     local CREATE_DATE=`exiftool -CreateDate -fast2 "${PHOTO}" | cut -d':' -f2- | sed 's/ //g'`
                 fi
-                
+
                 # Only query the other tags if CreateDate was found.
-                if [ -n "${CREATE_DATE}" ]; then
-                    local MODEL=`exiftool -Model -fast2 "${PHOTO}" | cut -d':' -f2- | sed 's/ //g'`
-                    local FILE_TYPE=`exiftool -FileType -fast2 "${PHOTO}" | cut -d':' -f2- | sed 's/ //g' | tr '[:upper:]' '[:lower:]'`
-                else
+                local MODEL=`exiftool -Model -fast2 "${PHOTO}" | cut -d':' -f2- | sed 's/ //g'`
+                if [ -z "${MODEL}" ]; then
                     local MODEL="Unknown"
+		fi
+
+                local FILE_TYPE=`exiftool -FileType -fast2 "${PHOTO}" | cut -d':' -f2- | sed 's/ //g' | tr '[:upper:]' '[:lower:]'`
+                if [ -z "${FILE_TYPE}" ]; then
                     local FILE_TYPE="${PHOTO##*.}"
                 fi
 
-                local CENTURY=`echo "${CREATE_DATE}" | cut -c1-2`
                 local YEAR=`echo "${CREATE_DATE}" | cut -c1-4`
                 # Correct bogus year
                 #  - http://redmine.yorba.org/issues/3314
                 # The problem in AOSP is they're all reporting videos dated 1945
                 # in 2011. That's off by 66 years, which is the difference
                 # between 1970 (unix) and 1904 (quicktime).
-                if [ "${CENTURY}" == "19" ]; then
+                if [ ${YEAR} -le 1970 ]; then
                     local YEAR=$((${YEAR} + 66))
                 fi
 
@@ -80,11 +81,11 @@ exifsorter() {
                     local NEW_DIRECTORY="${HOME}/Phort/NOEXIF/"
                     local NEW_FILENAME="${MODEL}.${FILE_TYPE}"
                 fi
-                
+
                 if [ ! -d "${NEW_DIRECTORY}" ]; then
                     mkdir -p "${NEW_DIRECTORY}"
                 fi
-                
+
                 # Handle file name conflicts.
                 local INCREMENT=0
                 while [ -f "${NEW_DIRECTORY}/${NEW_FILENAME}" ]
