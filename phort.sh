@@ -51,6 +51,9 @@ exifsorter() {
                 if [ -n "${CREATE_DATE}" ]; then
                     local MODEL=`exiftool -Model -fast2 "${PHOTO}" | cut -d':' -f2- | sed 's/ //g'`
                     local FILE_TYPE=`exiftool -FileType -fast2 "${PHOTO}" | cut -d':' -f2- | sed 's/ //g' | tr '[:upper:]' '[:lower:]'`
+                else
+                    local MODEL="Unknown"
+                    local FILE_TYPE="${PHOTO##*.}"
                 fi
 
                 local CENTURY=`echo "${CREATE_DATE}" | cut -c1-2`
@@ -63,11 +66,6 @@ exifsorter() {
                 if [ "${CENTURY}" == "19" ]; then
                     local YEAR=$((${YEAR} + 66))
                 fi
-                
-                # Make sure the model includes something.
-                if [ -z "${MODEL}" ]; then
-                    MODEL="Unknown"
-                fi
 
                 local MONTH=`echo "${CREATE_DATE}" | cut -c6-7`
                 local DAY=`echo "${CREATE_DATE}" | cut -c9-10`
@@ -77,18 +75,26 @@ exifsorter() {
 
                 if [ -n "${YEAR}${MONTH}${DAY}${HH}${MM}${SS}" ]; then
                     local NEW_DIRECTORY="${HOME}/Phort/${YEAR}/${MONTH}/${DAY}"
+                    local NEW_FILENAME="${YEAR}-${MONTH}-${DAY}-${HH}-${MM}-${SS}-${MODEL}.${FILE_TYPE}"
                 else
                     local NEW_DIRECTORY="${HOME}/Phort/NOEXIF/"
+                    local NEW_FILENAME="${MODEL}.${FILE_TYPE}"
                 fi
-                mkdir -p "${NEW_DIRECTORY}"
+                
+                if [ ! -d "${NEW_DIRECTORY}" ]; then
+                    mkdir -p "${NEW_DIRECTORY}"
+                fi
                 
                 # Handle file name conflicts.
-                local NEW_FILENAME="${YEAR}-${MONTH}-${DAY}-${HH}-${MM}-${SS}-${MODEL}.${FILE_TYPE}"
                 local INCREMENT=0
                 while [ -f "${NEW_DIRECTORY}/${NEW_FILENAME}" ]
                 do
                     local INCREMENT=$(( ${INCREMENT} + 1 ))
-                    local NEW_FILENAME="${YEAR}-${MONTH}-${DAY}-${HH}-${MM}-${SS}-${MODEL}-${INCREMENT}.${FILE_TYPE}"
+                    if [ -n "${YEAR}${MONTH}${DAY}${HH}${MM}${SS}" ]; then
+                        local NEW_FILENAME="${YEAR}-${MONTH}-${DAY}-${HH}-${MM}-${SS}-${MODEL}-${INCREMENT}.${FILE_TYPE}"
+                    else
+                        local NEW_FILENAME="${MODEL}-${INCREMENT}.${FILE_TYPE}"
+                    fi
                 done
                 cp -v "${PHOTO}" ${NEW_DIRECTORY}/${NEW_FILENAME}
             fi
