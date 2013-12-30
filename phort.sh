@@ -28,6 +28,7 @@
 
 IFS=$'\n'
 VER="1.0"
+PHORT_DIR="/media/active/Phort"
 
 echo "phort v${VER} - Automatic photo and video file sorter."
 echo "Copyright (c) 2013 Flexion.Org, http://flexion.org. MIT License"
@@ -47,10 +48,14 @@ exifsorter() {
                     local CREATE_DATE=`exiftool -CreateDate -fast2 "${PHOTO}" | cut -d':' -f2- | sed 's/ //g'`
                 fi
 
-                # Only query the other tags if CreateDate was found.
                 local MODEL=`exiftool -Model -fast2 "${PHOTO}" | cut -d':' -f2- | sed 's/ //g'`
                 if [ -z "${MODEL}" ]; then
-                    local MODEL="Unknown"
+                    local MODEL="Device"
+		fi
+
+                local MAKE=`exiftool -Make -fast2 "${PHOTO}" | cut -d':' -f2- | sed 's/[ ,.]//g'`
+                if [ -z "${MAKE}" ]; then
+                    local MAKE="Unknown"
 		fi
 
                 local FILE_TYPE=`exiftool -FileType -fast2 "${PHOTO}" | cut -d':' -f2- | sed 's/ //g' | tr '[:upper:]' '[:lower:]'`
@@ -59,15 +64,6 @@ exifsorter() {
                 fi
 
                 local YEAR=`echo "${CREATE_DATE}" | cut -c1-4`
-                # Correct bogus year
-                #  - http://redmine.yorba.org/issues/3314
-                # The problem in AOSP is they're all reporting videos dated 1945
-                # in 2011. That's off by 66 years, which is the difference
-                # between 1970 (unix) and 1904 (quicktime).
-                if [ ${YEAR} -le 1970 ]; then
-                    local YEAR=$((${YEAR} + 66))
-                fi
-
                 local MONTH=`echo "${CREATE_DATE}" | cut -c6-7`
                 local DAY=`echo "${CREATE_DATE}" | cut -c9-10`
                 local HH=`echo "${CREATE_DATE}" | cut -c11-12`
@@ -75,11 +71,19 @@ exifsorter() {
                 local SS=`echo "${CREATE_DATE}" | cut -c17-18`
 
                 if [ -n "${YEAR}${MONTH}${DAY}${HH}${MM}${SS}" ]; then
-                    local NEW_DIRECTORY="${HOME}/Phort/${YEAR}/${MONTH}"
-                    local NEW_FILENAME="${YEAR}-${MONTH}-${DAY}-${HH}-${MM}-${SS}-${MODEL}.${FILE_TYPE}"
+                    # Correct bogus year
+                    #  - http://redmine.yorba.org/issues/3314
+                    # The problem in AOSP is they're all reporting videos dated 1945
+                    # in 2011. That's off by 66 years, which is the difference
+                    # between 1970 (unix) and 1904 (quicktime).
+                    if [ ${YEAR} -le 1970 ]; then
+                   	local YEAR=$((  ${YEAR} + 66 ))
+                    fi
+                    local NEW_DIRECTORY="${PHORT_DIR}/${YEAR}/${MONTH}"
+                    local NEW_FILENAME="${YEAR}-${MONTH}-${DAY}-${HH}-${MM}-${SS}-${MAKE}-${MODEL}.${FILE_TYPE}"
                 else
-                    local NEW_DIRECTORY="${HOME}/Phort/NOEXIF/"
-                    local NEW_FILENAME="${MODEL}.${FILE_TYPE}"
+                    local NEW_DIRECTORY="${PHORT_DIR}/NOEXIF/"
+                    local NEW_FILENAME="${MAKE}-${MODEL}.${FILE_TYPE}"
                 fi
 
                 if [ ! -d "${NEW_DIRECTORY}" ]; then
@@ -92,9 +96,9 @@ exifsorter() {
                 do
                     local INCREMENT=$(( ${INCREMENT} + 1 ))
                     if [ -n "${YEAR}${MONTH}${DAY}${HH}${MM}${SS}" ]; then
-                        local NEW_FILENAME="${YEAR}-${MONTH}-${DAY}-${HH}-${MM}-${SS}-${MODEL}-${INCREMENT}.${FILE_TYPE}"
+                        local NEW_FILENAME="${YEAR}-${MONTH}-${DAY}-${HH}-${MM}-${SS}-${MAKE}-${MODEL}-${INCREMENT}.${FILE_TYPE}"
                     else
-                        local NEW_FILENAME="${MODEL}-${INCREMENT}.${FILE_TYPE}"
+                        local NEW_FILENAME="${MAKE}-${MODEL}-${INCREMENT}.${FILE_TYPE}"
                     fi
                 done
                 cp -v "${PHOTO}" "${NEW_DIRECTORY}/${NEW_FILENAME}"
@@ -132,10 +136,13 @@ usage() {
 
 # Define the commands we will be using. If you don't have them, get them! ;-)
 REQUIRED_TOOLS=`cat << EOF
-echo
 ls
+cut
 exiftool
+fdupes
 pwd
+sed
+tr
 EOF`
 
 for REQUIRED_TOOL in ${REQUIRED_TOOLS}
@@ -167,4 +174,8 @@ else
 fi
 
 recurse "${PHOTO_DIR}"
+#mkdir -p "${PHORT_DIR}/DUPES"
+#fdupes -r -f -1 "${PHOTO_DIR}" > "${PHORT_DIR}/DUPES/duplicates.txt"
+#cat "${PHORT_DIR}/duplicates.txt" | xargs -i cp --parents {} "${PHORT_DIR}/DUPES"
+#cat "${PHORT_DIR}/duplicates.txt" | xargs rm
 echo "All Done!"
