@@ -75,7 +75,7 @@ exifsorter() {
                 local SS=`echo "${CREATE_DATE}" | cut -c17-18`
 
                 if [ -n "${YEAR}${MONTH}${DAY}${HH}${MM}${SS}" ]; then
-                    local NEW_DIRECTORY="${HOME}/Phort/${YEAR}/${MONTH}/${DAY}"
+                    local NEW_DIRECTORY="${HOME}/Phort/${YEAR}/${MONTH}"
                     local NEW_FILENAME="${YEAR}-${MONTH}-${DAY}-${HH}-${MM}-${SS}-${MODEL}.${FILE_TYPE}"
                 else
                     local NEW_DIRECTORY="${HOME}/Phort/NOEXIF/"
@@ -97,7 +97,7 @@ exifsorter() {
                         local NEW_FILENAME="${MODEL}-${INCREMENT}.${FILE_TYPE}"
                     fi
                 done
-                cp -v "${PHOTO}" ${NEW_DIRECTORY}/${NEW_FILENAME}
+                cp -v "${PHOTO}" "${NEW_DIRECTORY}/${NEW_FILENAME}"
             fi
         done
     done
