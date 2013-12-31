@@ -271,6 +271,11 @@ if [ ! -d ${PHOTO_DIR} ]; then
 fi
 
 LOG_FILE="${PHORT_DIR}/`basename ${0} .sh`-`date +%y%m%d-%H%M%S`.log"
+mkdir -p "${PHORT_DIR}"
+if [ $? -ne 0 ]; then
+    logit "ERROR! Failed to make directory : ${PHORT_DIR}"
+    exit 1
+fi
 touch "${LOG_FILE}"
 
 recurse "${PHOTO_DIR}"
