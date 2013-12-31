@@ -28,10 +28,10 @@
 
 IFS=$'\n'
 VER="1.0"
-KNOWN_TYPES="3gp,jpg,JPG,JPEG,M2TS,MTS,m2ts,m4v,mp4,ts"
 PHORT_DIR="/media/active/Phort"
-PHORT_DIR="${HOME}/Phort"
+#PHORT_DIR="${HOME}/Phort"
 LOG_FILE="${PHORT_DIR}/`basename ${0} .sh`-`date +%y%m%d-%H%M%S`.log"
+touch "${LOG_FILE}"
 
 echo "`basename ${0} .sh` v${VER} - Automatic photo and video file sorter."
 echo "Copyright (c) `date +%Y` Flexion.Org, http://flexion.org. MIT License"
@@ -81,7 +81,7 @@ function dedupe() {
 
 exifsorter() {
     logit "Processing files in `pwd` : "
-    for PHOTO in `ls -1 *.{3gp,jpg,JPG,JPEG,M2TS,MTS,m2ts,m4v,mp4,ts} 2>/dev/null`
+    for PHOTO in `ls -1 *.{3gp,jpg,JPG,JPEG,M2T,M2TS,MTS,m2t,m2ts,mts,m4v,mp4,ts} 2>/dev/null`
     do
         if [ -f "${PHOTO}" ]; then
             exiftool -CreateDate -DateTimeOriginal -FileType -Make -Model -fast2 "${PHOTO}" > /tmp/exif.txt
