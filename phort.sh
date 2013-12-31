@@ -28,10 +28,6 @@
 
 IFS=$'\n'
 VER="1.0"
-PHORT_DIR="/media/active/Phort"
-#PHORT_DIR="${HOME}/Phort"
-LOG_FILE="${PHORT_DIR}/`basename ${0} .sh`-`date +%y%m%d-%H%M%S`.log"
-touch "${LOG_FILE}"
 
 echo "`basename ${0} .sh` v${VER} - Automatic photo and video file sorter."
 echo "Copyright (c) `date +%Y` Flexion.Org, http://flexion.org. MIT License"
@@ -45,7 +41,7 @@ copyphoto() {
     local SOURCE="${1}"
     local TARGET="${2}"
     
-    cp "${SOURCE}" "${TARGET}"
+    cp -a "${SOURCE}" "${TARGET}"
     if [ $? -eq 0 ]; then
         logit " - ${SOURCE} -> ${TARGET} success."
     else
@@ -57,9 +53,10 @@ movephoto() {
     local SOURCE="${1}"
     local TARGET="${2}"
     
-    mv "${SOURCE}" "${TARGET}"
+    cp -a "${SOURCE}" "${TARGET}"
     if [ $? -eq 0 ]; then
         logit " - ${SOURCE} -> ${TARGET} success."
+        rm -f "${SOURCE}"
     else
         logit " - ${SOURCE} -> ${TARGET} failed."
     fi
@@ -81,7 +78,7 @@ function dedupe() {
 
 exifsorter() {
     logit "Processing files in `pwd` : "
-    for PHOTO in `ls -1 *.{3gp,jpg,JPG,JPEG,M2T,M2TS,MTS,m2t,m2ts,mts,m4v,mp4,ts} 2>/dev/null`
+    for PHOTO in `ls -1 *.{3gp,3gpp,jpg,JPG,JPEG,M2T,M2TS,MTS,m2t,m2ts,mts,m4v,mp4,raw,RAW,tiff,TIFF,ts} 2>/dev/null`
     do
         if [ -f "${PHOTO}" ]; then
             exiftool -CreateDate -DateTimeOriginal -FileType -Make -Model -fast2 "${PHOTO}" > /tmp/exif.txt
@@ -97,9 +94,9 @@ exifsorter() {
                 local CREATE_DATE=`grep "Create Date" /tmp/exif.txt | cut -d':' -f2- | sed 's/ //'`
             fi
 
-            local MODEL=`grep "Camera Model Name" /tmp/exif.txt | cut -d':' -f2- | sed -e 's/ //' -e 's/ /-/g'`
-            if [ -z "${MODEL}" ]; then
-                local MODEL="Device"
+            local TEST_YEAR=`echo "${CREATE_DATE}" | cut -c1-4`
+            if [ "${TEST_YEAR}" == "1904" ] || [ "${TEST_YEAR}" == "1970" ]; then
+                local CREATE_DATE=`grep "Create Date" /tmp/exif.txt | cut -d':' -f2- | sed 's/ //'`
             fi
 
             local MAKE=`grep "Make" /tmp/exif.txt | cut -d':' -f2- | sed -e 's/ //' -e 's/ /-/g' -e's/[,.]//g'`
@@ -107,9 +104,22 @@ exifsorter() {
                 local MAKE="Unknown"
             fi
 
+            local MODEL=`grep "Camera Model Name" /tmp/exif.txt | cut -d':' -f2- | sed -e 's/ //' -e 's/ /-/g'`
+            if [ -z "${MODEL}" ]; then
+                local MODEL="Camera"
+            fi
+
             local FILE_TYPE=`grep "File Type" /tmp/exif.txt | cut -d':' -f2- | sed 's/ //' | tr '[:upper:]' '[:lower:]'`
             if [ -z "${FILE_TYPE}" ]; then
                 local FILE_TYPE="${PHOTO##*.}"
+            fi
+
+            if [ "${FILE_TYPE}" == "jpeg" ] || [ "${FILE_TYPE}" == "jpg" ] ||
+               [ "${FILE_TYPE}" == "tiff" ] || [ "${FILE_TYPE}" == "tif" ] ||
+               [ "${FILE_TYPE}" == "raw" ]; then
+                local CATEGORY="Photo"
+            else
+                local CATEGORY="Video"
             fi
 
             local YEAR=`echo "${CREATE_DATE}" | cut -c1-4`
@@ -118,7 +128,7 @@ exifsorter() {
             local HH=`echo "${CREATE_DATE}" | cut -c12-13`
             local MM=`echo "${CREATE_DATE}" | cut -c15-16`
             local SS=`echo "${CREATE_DATE}" | cut -c18-19`
-
+            
             if [ -n "${YEAR}${MONTH}${DAY}${HH}${MM}${SS}" ]; then
                 # Correct bogus year
                 #  - http://redmine.yorba.org/issues/3314
@@ -128,15 +138,19 @@ exifsorter() {
                 if [ ${YEAR} -le 1970 ]; then
                     local YEAR=$(( ${YEAR} + 66 ))
                 fi
-                local NEW_DIRECTORY="${PHORT_DIR}/${YEAR}/${MONTH}"
-                local NEW_FILENAME="${YEAR}-${MONTH}-${DAY}-${HH}-${MM}-${SS}-${MAKE}-${MODEL}.${FILE_TYPE}"
+                local NEW_DIRECTORY="${PHORT_DIR}/${CATEGORY}/${YEAR}/${MONTH}"
+                local NEW_FILENAME="${YEAR}-${MONTH}-${DAY}-${HH}${MM}${SS}-${MAKE}-${MODEL}.${FILE_TYPE}"
             else
-                local NEW_DIRECTORY="${PHORT_DIR}/NOEXIF"
+                local NEW_DIRECTORY="${PHORT_DIR}/${CATEGORY}/NOEXIF"
                 local NEW_FILENAME="${MAKE}-${MODEL}.${FILE_TYPE}"
             fi
 
             if [ ! -d "${NEW_DIRECTORY}" ]; then
                 mkdir -p "${NEW_DIRECTORY}"
+                if [ $? -ne 0 ]; then
+                    logit "ERROR! Failed to make directory : ${NEW_DIRECTORY}"
+                    exit 1
+                fi
             fi
 
             if [ -f "${NEW_DIRECTORY}/${NEW_FILENAME}" ]; then
@@ -152,7 +166,7 @@ exifsorter() {
                     do
                         local INCREMENT=$(( ${INCREMENT} + 1 ))
                         if [ -n "${YEAR}${MONTH}${DAY}${HH}${MM}${SS}" ]; then
-                            local NEW_FILENAME="${YEAR}-${MONTH}-${DAY}-${HH}-${MM}-${SS}-${MAKE}-${MODEL}-${INCREMENT}.${FILE_TYPE}"
+                            local NEW_FILENAME="${YEAR}-${MONTH}-${DAY}-${HH}${MM}${SS}-${MAKE}-${MODEL}-${INCREMENT}.${FILE_TYPE}"
                         else
                             local NEW_FILENAME="${MAKE}-${MODEL}-${INCREMENT}.${FILE_TYPE}"
                         fi
@@ -199,9 +213,11 @@ recurse() {
 usage() {
     echo
     echo "Usage"
-    echo "  ${0} photodirectory [--help]"
+    echo "  ${0} -i input_directory -o output_directory [--help]"
     echo ""
-    echo "  --help  : This help."
+    echo "  -i : The directory containing photos you want to organise."
+    echo "  -o : The directory the organised photos should be copied to."
+    echo "  -h : This help."
     echo
     exit 1
 }
@@ -229,21 +245,33 @@ do
     fi
 done
 
-# Get the first parameter passed in and validate it.
-if [ $# -ne 1 ]; then
-    echo "ERROR! ${0} requires a photo directory as input"
+PHOTO_DIR=""
+PHORT_DIR=""
+
+OPTSTRING=hi:o:
+while getopts ${OPTSTRING} OPT
+do
+    case ${OPT} in
+        h) usage;;
+        i) PHOTO_DIR="${OPTARG}";;
+        o) PHORT_DIR="${OPTARG}";;
+        *) usage;;
+    esac
+done
+shift "$(( $OPTIND - 1 ))"
+
+if [ -z "${PHOTO_DIR}" ] || [ -z "${PHORT_DIR}" ]; then
+    echo "ERROR! You must supply both the input and output directories."
     usage
 fi
 
-if [ "${1}" == "-h" ] || [ "${1}" == "--h" ] || [ "${1}" == "-help" ] || [ "${1}" == "--help" ] || [ "${1}" == "-?" ]; then
+if [ ! -d ${PHOTO_DIR} ]; then
+    echo "ERROR! The input directory '${PHOTO_DIR}' was not found."
     usage
-else
-    PHOTO_DIR="${1}"
-    if [ ! -d ${PHOTO_DIR} ]; then
-        echo "ERROR! ${PHOTO_DIR} was not found."
-        usage
-    fi
 fi
+
+LOG_FILE="${PHORT_DIR}/`basename ${0} .sh`-`date +%y%m%d-%H%M%S`.log"
+touch "${LOG_FILE}"
 
 recurse "${PHOTO_DIR}"
 dedupe
