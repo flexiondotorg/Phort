@@ -41,7 +41,7 @@ logit() {
 }
 
 exifsorter() {
-    echo "Processing files in `pwd` : "
+    logit "Processing files in `pwd` : "
     for TYPE in 3gp jpg JPG m4v mp4
     do
         for PHOTO in *.${TYPE}
@@ -55,8 +55,7 @@ exifsorter() {
                 #Camera Model Name               : HTC Desire
                 
                 local CREATE_DATE=`grep "Date/Time Original" /tmp/exif.txt | cut -d':' -f2- | sed 's/ //'`
-
-                #If DateTimeOriginal was not available fall back to 'Create Date'
+                #If 'Date/Time Original' was not available fall back to 'Create Date'
                 if [ -z "${CREATE_DATE}" ]; then
                     local CREATE_DATE=`grep "Create Date" /tmp/exif.txt | cut -d':' -f2- | sed 's/ //'`
                 fi
@@ -107,7 +106,7 @@ exifsorter() {
                     # Compare source and target photos
                     cmp --quiet "${PHOTO}" "${NEW_DIRECTORY}/${NEW_FILENAME}"
                     if [ $? -eq 0 ]; then
-                        echo "‘${PHOTO}’ -> ‘${NEW_DIRECTORY}/${NEW_FILENAME}’ already imported."
+                        logit " - ${PHOTO} -> ${NEW_DIRECTORY}/${NEW_FILENAME} already imported."
                     else
                         # Handle file name conflicts.
                         local INCREMENT=0
@@ -125,19 +124,29 @@ exifsorter() {
                                 # Compare the source with the incremented filename to ensure this photo hasn't already been imported.
                                 cmp --quiet "${PHOTO}" "${NEW_DIRECTORY}/${NEW_FILENAME}"
                                 if [ $? -eq 0 ]; then
-                                    echo "‘${PHOTO}’ -> ‘${NEW_DIRECTORY}/${NEW_FILENAME}’ already imported."
+                                    logit " - ${PHOTO} -> ${NEW_DIRECTORY}/${NEW_FILENAME} already imported."
                                     local KEEP_CHECKING=0
                                 fi
                             else
                                 # Photo has not previously been imported, so import it.
-                                cp -v "${PHOTO}" "${NEW_DIRECTORY}/${NEW_FILENAME}"
+                                cp "${PHOTO}" "${NEW_DIRECTORY}/${NEW_FILENAME}"
+                                if [ $? -eq 0 ]; then
+                                    logit " - ${PHOTO} -> ${NEW_DIRECTORY}/${NEW_FILENAME} success."
+                                else
+                                    logit " - ${PHOTO} -> ${NEW_DIRECTORY}/${NEW_FILENAME} failed."
+                                fi
                                 local KEEP_CHECKING=0
                             fi
                         done
                     fi
                 else
                     # Photo has not previously been imported, so import it.
-                    cp -v "${PHOTO}" "${NEW_DIRECTORY}/${NEW_FILENAME}"
+                    cp "${PHOTO}" "${NEW_DIRECTORY}/${NEW_FILENAME}"
+                    if [ $? -eq 0 ]; then
+                        logit " - ${PHOTO} -> ${NEW_DIRECTORY}/${NEW_FILENAME} success."
+                    else
+                        logit " - ${PHOTO} -> ${NEW_DIRECTORY}/${NEW_FILENAME} failed."
+                    fi
                 fi
             fi
         done
