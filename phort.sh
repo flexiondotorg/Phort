@@ -29,10 +29,16 @@
 IFS=$'\n'
 VER="1.0"
 PHORT_DIR="/media/active/Phort"
+PHORT_DIR="${HOME}/Phort"
+LOG_FILE="${PHORT_DIR}/`basename ${0} .sh`-`date +%y%m%d-%H%M%S`.log"
 
-echo "phort v${VER} - Automatic photo and video file sorter."
-echo "Copyright (c) 2013 Flexion.Org, http://flexion.org. MIT License"
+echo "`basename ${0} .sh` v${VER} - Automatic photo and video file sorter."
+echo "Copyright (c) `date +%Y` Flexion.Org, http://flexion.org. MIT License"
 echo
+
+logit() {
+    echo "${1}" | tee -a "${LOG_FILE}"
+}
 
 exifsorter() {
     echo "Processing files in `pwd` : "
@@ -41,24 +47,31 @@ exifsorter() {
         for PHOTO in *.${TYPE}
         do
             if [ -f "${PHOTO}" ]; then
-                local CREATE_DATE=`exiftool -DateTimeOriginal -fast2 "${PHOTO}" | cut -d':' -f2- | sed 's/ //g'`
+                exiftool -CreateDate -DateTimeOriginal -FileType -Make -Model -fast2 "${PHOTO}" > /tmp/exif.txt
+                #Create Date                     : 2012:06:17 18:17:44
+                #Date/Time Original              : 2012:06:17 18:17:44
+                #File Type                       : JPEG
+                #Make                            : HTC
+                #Camera Model Name               : HTC Desire
+                
+                local CREATE_DATE=`grep "Date/Time Original" /tmp/exif.txt | cut -d':' -f2- | sed 's/ //'`
 
-                #If DateTimeOriginal was not available fall back to CreateDate
+                #If DateTimeOriginal was not available fall back to 'Create Date'
                 if [ -z "${CREATE_DATE}" ]; then
-                    local CREATE_DATE=`exiftool -CreateDate -fast2 "${PHOTO}" | cut -d':' -f2- | sed 's/ //g'`
+                    local CREATE_DATE=`grep "Create Date" /tmp/exif.txt | cut -d':' -f2- | sed 's/ //'`
                 fi
 
-                local MODEL=`exiftool -Model -fast2 "${PHOTO}" | cut -d':' -f2- | sed 's/ //g'`
+                local MODEL=`grep "Camera Model Name" /tmp/exif.txt | cut -d':' -f2- | sed -e 's/ //' -e 's/ /-/g'`
                 if [ -z "${MODEL}" ]; then
                     local MODEL="Device"
-		fi
+                fi
 
-                local MAKE=`exiftool -Make -fast2 "${PHOTO}" | cut -d':' -f2- | sed 's/[ ,.]//g'`
+                local MAKE=`grep "Make" /tmp/exif.txt | cut -d':' -f2- | sed -e 's/ //' -e 's/ /-/g' -e's/[,.]//g'`
                 if [ -z "${MAKE}" ]; then
                     local MAKE="Unknown"
-		fi
+                fi
 
-                local FILE_TYPE=`exiftool -FileType -fast2 "${PHOTO}" | cut -d':' -f2- | sed 's/ //g' | tr '[:upper:]' '[:lower:]'`
+                local FILE_TYPE=`grep "File Type" /tmp/exif.txt | cut -d':' -f2- | sed 's/ //' | tr '[:upper:]' '[:lower:]'`
                 if [ -z "${FILE_TYPE}" ]; then
                     local FILE_TYPE="${PHOTO##*.}"
                 fi
@@ -66,9 +79,9 @@ exifsorter() {
                 local YEAR=`echo "${CREATE_DATE}" | cut -c1-4`
                 local MONTH=`echo "${CREATE_DATE}" | cut -c6-7`
                 local DAY=`echo "${CREATE_DATE}" | cut -c9-10`
-                local HH=`echo "${CREATE_DATE}" | cut -c11-12`
-                local MM=`echo "${CREATE_DATE}" | cut -c14-15`
-                local SS=`echo "${CREATE_DATE}" | cut -c17-18`
+                local HH=`echo "${CREATE_DATE}" | cut -c12-13`
+                local MM=`echo "${CREATE_DATE}" | cut -c15-16`
+                local SS=`echo "${CREATE_DATE}" | cut -c18-19`
 
                 if [ -n "${YEAR}${MONTH}${DAY}${HH}${MM}${SS}" ]; then
                     # Correct bogus year
@@ -77,12 +90,12 @@ exifsorter() {
                     # in 2011. That's off by 66 years, which is the difference
                     # between 1970 (unix) and 1904 (quicktime).
                     if [ ${YEAR} -le 1970 ]; then
-                   	local YEAR=$((  ${YEAR} + 66 ))
+                        local YEAR=$((  ${YEAR} + 66 ))
                     fi
                     local NEW_DIRECTORY="${PHORT_DIR}/${YEAR}/${MONTH}"
                     local NEW_FILENAME="${YEAR}-${MONTH}-${DAY}-${HH}-${MM}-${SS}-${MAKE}-${MODEL}.${FILE_TYPE}"
                 else
-                    local NEW_DIRECTORY="${PHORT_DIR}/NOEXIF/"
+                    local NEW_DIRECTORY="${PHORT_DIR}/NOEXIF"
                     local NEW_FILENAME="${MAKE}-${MODEL}.${FILE_TYPE}"
                 fi
 
@@ -90,18 +103,42 @@ exifsorter() {
                     mkdir -p "${NEW_DIRECTORY}"
                 fi
 
-                # Handle file name conflicts.
-                local INCREMENT=0
-                while [ -f "${NEW_DIRECTORY}/${NEW_FILENAME}" ]
-                do
-                    local INCREMENT=$(( ${INCREMENT} + 1 ))
-                    if [ -n "${YEAR}${MONTH}${DAY}${HH}${MM}${SS}" ]; then
-                        local NEW_FILENAME="${YEAR}-${MONTH}-${DAY}-${HH}-${MM}-${SS}-${MAKE}-${MODEL}-${INCREMENT}.${FILE_TYPE}"
+                if [ -f "${NEW_DIRECTORY}/${NEW_FILENAME}" ]; then
+                    # Compare source and target photos
+                    cmp --quiet "${PHOTO}" "${NEW_DIRECTORY}/${NEW_FILENAME}"
+                    if [ $? -eq 0 ]; then
+                        echo "‘${PHOTO}’ -> ‘${NEW_DIRECTORY}/${NEW_FILENAME}’ already imported."
                     else
-                        local NEW_FILENAME="${MAKE}-${MODEL}-${INCREMENT}.${FILE_TYPE}"
+                        # Handle file name conflicts.
+                        local INCREMENT=0
+                        local KEEP_CHECKING=1
+                        while [ ${KEEP_CHECKING} -eq 1 ]
+                        do
+                            local INCREMENT=$(( ${INCREMENT} + 1 ))
+                            if [ -n "${YEAR}${MONTH}${DAY}${HH}${MM}${SS}" ]; then
+                                local NEW_FILENAME="${YEAR}-${MONTH}-${DAY}-${HH}-${MM}-${SS}-${MAKE}-${MODEL}-${INCREMENT}.${FILE_TYPE}"
+                            else
+                                local NEW_FILENAME="${MAKE}-${MODEL}-${INCREMENT}.${FILE_TYPE}"
+                            fi
+
+                            if [ -f "${NEW_DIRECTORY}/${NEW_FILENAME}" ]; then
+                                # Compare the source with the incremented filename to ensure this photo hasn't already been imported.
+                                cmp --quiet "${PHOTO}" "${NEW_DIRECTORY}/${NEW_FILENAME}"
+                                if [ $? -eq 0 ]; then
+                                    echo "‘${PHOTO}’ -> ‘${NEW_DIRECTORY}/${NEW_FILENAME}’ already imported."
+                                    local KEEP_CHECKING=0
+                                fi
+                            else
+                                # Photo has not previously been imported, so import it.
+                                cp -v "${PHOTO}" "${NEW_DIRECTORY}/${NEW_FILENAME}"
+                                local KEEP_CHECKING=0
+                            fi
+                        done
                     fi
-                done
-                cp -v "${PHOTO}" "${NEW_DIRECTORY}/${NEW_FILENAME}"
+                else
+                    # Photo has not previously been imported, so import it.
+                    cp -v "${PHOTO}" "${NEW_DIRECTORY}/${NEW_FILENAME}"
+                fi
             fi
         done
     done
@@ -174,8 +211,10 @@ else
 fi
 
 recurse "${PHOTO_DIR}"
-#mkdir -p "${PHORT_DIR}/DUPES"
-#fdupes -r -f -1 "${PHOTO_DIR}" > "${PHORT_DIR}/DUPES/duplicates.txt"
-#cat "${PHORT_DIR}/duplicates.txt" | xargs -i cp --parents {} "${PHORT_DIR}/DUPES"
+if [ ! -d "${PHORT_DIR}/DUPES" ]; then
+    mkdir -p "${PHORT_DIR}/DUPES"
+fi
+fdupes -r -f -1 "${PHORT_DIR}" > "${PHORT_DIR}/DUPES/duplicates.txt"
+cat "${PHORT_DIR}/duplicates.txt" | xargs -i cp --parents {} "${PHORT_DIR}/DUPES"
 #cat "${PHORT_DIR}/duplicates.txt" | xargs rm
 echo "All Done!"
