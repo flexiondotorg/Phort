@@ -158,6 +158,9 @@ exifsorter() {
                 cmp --quiet "${PHOTO}" "${NEW_DIRECTORY}/${NEW_FILENAME}"
                 if [ $? -eq 0 ]; then
                     logit " - ${PHOTO} -> ${NEW_DIRECTORY}/${NEW_FILENAME} already imported."
+                    if [ "${SORT_MODE}" == "move" ]; then
+                        rm "${PHOTO}"
+                    fi
                 else
                     # Handle file name conflicts.
                     local INCREMENT=0
@@ -176,6 +179,9 @@ exifsorter() {
                             cmp --quiet "${PHOTO}" "${NEW_DIRECTORY}/${NEW_FILENAME}"
                             if [ $? -eq 0 ]; then
                                 logit " - ${PHOTO} -> ${NEW_DIRECTORY}/${NEW_FILENAME} already imported."
+                                if [ "${SORT_MODE}" == "move" ]; then
+                                    rm "${PHOTO}"
+                                fi
                                 local KEEP_CHECKING=0
                             fi
                         else
