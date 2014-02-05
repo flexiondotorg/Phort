@@ -3,7 +3,7 @@
 # License
 #
 # Automatic photo and video file sorter. 
-# Copyright (c) 2013 Flexion.Org, http://flexion.org/
+# Copyright (c) 2014 Flexion.Org, http://flexion.org/
 #
 # Permission is hereby granted, free of charge, to any person
 # obtaining a copy of this software and associated documentation
@@ -27,7 +27,7 @@
 # OTHER DEALINGS IN THE SOFTWARE.
 
 IFS=$'\n'
-VER="1.0"
+VER="1.1"
 
 echo "`basename ${0} .sh` v${VER} - Automatic photo and video file sorter."
 echo "Copyright (c) `date +%Y` Flexion.Org, http://flexion.org. MIT License"
@@ -180,14 +180,22 @@ exifsorter() {
                             fi
                         else
                             # Photo has not previously been imported, so import it.
-                            copyphoto "${PHOTO}" "${NEW_DIRECTORY}/${NEW_FILENAME}"
+                            if [ "${SORT_MODE}" == "copy" ]; then
+                                copyphoto "${PHOTO}" "${NEW_DIRECTORY}/${NEW_FILENAME}"
+                            else
+                                movephoto "${PHOTO}" "${NEW_DIRECTORY}/${NEW_FILENAME}"
+                            fi
                             local KEEP_CHECKING=0
                         fi
                     done
                 fi
             else
                 # Photo has not previously been imported, so import it.
-                copyphoto "${PHOTO}" "${NEW_DIRECTORY}/${NEW_FILENAME}"
+                if [ "${SORT_MODE}" == "copy" ]; then
+                    copyphoto "${PHOTO}" "${NEW_DIRECTORY}/${NEW_FILENAME}"
+                else
+                    movephoto "${PHOTO}" "${NEW_DIRECTORY}/${NEW_FILENAME}"
+                fi
             fi
         fi
     done
@@ -213,10 +221,11 @@ recurse() {
 usage() {
     echo
     echo "Usage"
-    echo "  ${0} -i input_directory -o output_directory [--help]"
+    echo "  ${0} -i input_directory -o output_directory [-h]"
     echo ""
     echo "  -i : The directory containing photos you want to organise."
     echo "  -o : The directory the organised photos should be copied to."
+    echo "  -m : Move photos to the output_directory, rather than copy. Default: copy."
     echo "  -h : This help."
     echo
     exit 1
@@ -247,13 +256,15 @@ done
 
 PHOTO_DIR=""
 PHORT_DIR=""
+SORT_MODE="copy"
 
-OPTSTRING=hi:o:
+OPTSTRING=hi:mo:
 while getopts ${OPTSTRING} OPT
 do
     case ${OPT} in
         h) usage;;
         i) PHOTO_DIR="${OPTARG}";;
+        m) SORT_MODE="move";;
         o) PHORT_DIR="${OPTARG}";;
         *) usage;;
     esac
