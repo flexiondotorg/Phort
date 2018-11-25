@@ -2,7 +2,7 @@
 #
 # License
 #
-# Automatic photo and video file sorter. 
+# Automatic photo and video file sorter.
 # Copyright (c) 2014 Flexion.Org, http://flexion.org/
 #
 # Permission is hereby granted, free of charge, to any person
@@ -40,7 +40,7 @@ logit() {
 copyphoto() {
     local SOURCE="${1}"
     local TARGET="${2}"
-    
+
     cp -a "${SOURCE}" "${TARGET}"
     if [ $? -eq 0 ]; then
         logit " - ${SOURCE} -> ${TARGET} success."
@@ -52,7 +52,7 @@ copyphoto() {
 movephoto() {
     local SOURCE="${1}"
     local TARGET="${2}"
-    
+
     cp -a "${SOURCE}" "${TARGET}"
     if [ $? -eq 0 ]; then
         logit " - ${SOURCE} -> ${TARGET} success."
@@ -66,7 +66,7 @@ function dedupe() {
     if [ ! -d "${PHORT_DIR}/DUPES" ]; then
         mkdir -p "${PHORT_DIR}/DUPES"
     fi
-    
+
     fdupes -r -f "${PHORT_DIR}" > /tmp/duplicates.txt
     for DUPE in `sort -u /tmp/duplicates.txt | grep -v ".log"`
     do
@@ -87,7 +87,7 @@ exifsorter() {
             #File Type                       : JPEG
             #Make                            : HTC
             #Camera Model Name               : HTC Desire
-            
+
             local CREATE_DATE=`grep "Date/Time Original" /tmp/exif.txt | cut -d':' -f2- | sed 's/ //'`
             #If 'Date/Time Original' was not available fall back to 'Create Date'
             if [ -z "${CREATE_DATE}" ]; then
@@ -128,7 +128,7 @@ exifsorter() {
             local HH=`echo "${CREATE_DATE}" | cut -c12-13`
             local MM=`echo "${CREATE_DATE}" | cut -c15-16`
             local SS=`echo "${CREATE_DATE}" | cut -c18-19`
-            
+
             if [ -n "${YEAR}${MONTH}${DAY}${HH}${MM}${SS}" ]; then
                 # Correct bogus year
                 #  - http://redmine.yorba.org/issues/3314
@@ -240,6 +240,7 @@ usage() {
 # Define the commands we will be using. If you don't have them, get them! ;-)
 REQUIRED_TOOLS=`cat << EOF
 ls
+cmp
 cut
 exiftool
 fdupes
