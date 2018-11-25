@@ -78,7 +78,7 @@ function dedupe() {
 
 exifsorter() {
     logit "Processing files in `pwd` : "
-    for PHOTO in `ls -1 *.{3gp,3gpp,avi,AVI,jpg,JPG,JPEG,M2T,M2TS,MTS,m2t,m2ts,mpg,MPG,mts,m4v,mp4,raw,RAW,tiff,TIFF,ts} 2>/dev/null`
+    for PHOTO in `ls -1 *.{3gp,3gpp,avi,AVI,jpg,JPG,JPEG,M2T,M2TS,MTS,m2t,m2ts,mkv,MKV,mp4,MP4,mpg,MPG,mts,m4v,mp4,png,PNG,raw,RAW,tiff,TIFF,ts} 2>/dev/null`
     do
         if [ -f "${PHOTO}" ]; then
             exiftool -CreateDate -DateTimeOriginal -FileType -Make -Model -fast2 "${PHOTO}" > /tmp/exif.txt
